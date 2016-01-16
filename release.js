@@ -264,26 +264,26 @@
 
     //-- build files for bower
     exec([
-           'rm -rf dist',
-           'gulp docs',
-           'sed -i \'\' \'s,http:\\/\\/localhost:8080\\/angular-material,https:\\/\\/cdn.gitcdn.xyz/cdn/angular/bower-material/v{{newVersion}}/angular-material,g\' dist/docs/docs.js',
-           'sed -i \'\' \'s,http:\\/\\/localhost:8080\\/docs\\.css,https:\\/\\/material.angularjs.org/{{newVersion}}/docs.css,g\' dist/docs/docs.js',
-           'sed -i \'\' \'s,base\ href=\\",base\ href=\\"/{{newVersion}},g\' dist/docs/index.html'
-         ]);
+        'rm -rf dist',
+        'gulp docs'
+    ]);
+    replaceFilePaths();
 
     //-- copy files over to site repo
     exec([
-           'rm -rf ./*-rc*',
-           'cp -Rf ../dist/docs {{newVersion}}',
-           'rm -rf latest && cp -Rf ../dist/docs latest',
-           'git add -A',
-           'git commit -m "release: version {{newVersion}}"',
-           'rm -rf ../dist'
-         ], options);
+        'rm -rf ./*-rc*',
+        'cp -Rf ../dist/docs {{newVersion}}',
+        'rm -rf latest && cp -Rf ../dist/docs latest',
+        'git add -A',
+        'git commit -m "release: version {{newVersion}}"',
+        'rm -rf ../dist'
+    ], options);
+    replaceBaseHref(newVersion);
+    replaceBaseHref('latest');
 
     //-- update firebase.json file
     writeFirebaseJson();
-    exec([ 'git commit --amend --no-edit -a' ]);
+    exec([ 'git commit --amend --no-edit -a' ], options);
     done();
 
     //-- add steps to push script
@@ -329,6 +329,25 @@
       config.latest = newVersion;
       fs.writeFileSync(options.cwd + '/docs.json', JSON.stringify(config, null, 2));
     }
+  }
+
+  function replaceFilePaths () {
+    //-- handle docs.js
+    var path = __dirname + '/dist/docs/docs.js';
+    var file = fs.readFileSync(path);
+    var contents = file.toString()
+        .replace(/http:\/\/localhost:8080\/angular-material/g, 'https://cdn.gitcdn.xyz/cdn/angular/bower-material/v{{newVersion}}/angular-material')
+        .replace(/http:\/\/localhost:8080\/docs.css/g, 'https://material.angularjs.org/{{newVersion}}/docs.css');
+    fs.writeFileSync(path, contents);
+
+  }
+
+  function replaceBaseHref (folder) {
+    //-- handle index.html
+    var path = __dirname + '/code.material.angularjs.org/' + folder + '/index.html';
+    var file = fs.readFileSync(path);
+    var contents = file.toString().replace(/base href="\//g, 'base href="/' + folder + '/');
+    fs.writeFileSync(path, contents);
   }
 
   function updateMaster () {
@@ -388,7 +407,7 @@
     try {
       var options = Object.create(defaultOptions);
       for (var key in userOptions) options[ key ] = userOptions[ key ];
-      return child_process.execSync(fill(cmd) + ' 2> /dev/null', options).trim();
+      return child_process.execSync(fill(cmd) + ' 2> /dev/null', options).toString().trim();
     } catch (err) {
       return err;
     }
